@@ -7,9 +7,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const PRAYER_CHANNEL_ID = "salaty-prayer-adhan-v8";
 export const ATHKAR_CHANNEL_ID = "salaty-athkar-notifications-v2";
 export const FRIDAY_CHANNEL_ID = "salaty-friday-notifications-v2";
-// Android resolves notification sounds by the raw resource name, without the
-// extension. iOS uses the bundled filename.
-export const PRAYER_SOUND = Platform.OS === "android" ? "azan" : "azan.mp3";
+// Keep the bundled filename consistent across the channel and notification
+// content so Expo can resolve the configured sound on every platform.
+export const PRAYER_SOUND = "azan.mp3";
 const LEGACY_PRAYER_CHANNEL_IDS = new Set([
   "salaty-prayer-adhan-v7",
   "salaty-prayer-adhan-v6",
@@ -61,7 +61,7 @@ export async function configurePrayerNotificationChannel(): Promise<void> {
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: true,
     audioAttributes: {
-      usage: Notifications.AndroidAudioUsage.NOTIFICATION,
+      usage: Notifications.AndroidAudioUsage.ALARM,
       contentType: Notifications.AndroidAudioContentType.SONIFICATION,
     },
   });
