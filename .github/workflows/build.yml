@@ -43,5 +43,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Salaty-v1.0.14
+          name: Salaty-v1.0.15
           path: android/app/build/outputs/apk/debug/*.apk
