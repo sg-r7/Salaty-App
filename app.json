@@ -33,6 +33,7 @@
       ]
     },
     "plugins": [
+      "./plugins/withExpoGradleCompatibility",
       [
         "expo-notifications",
         {
@@ -42,7 +43,8 @@
             "./assets/azan.mp3"
           ]
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
