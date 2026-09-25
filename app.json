@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "صلاتي | SALATY",
-    "slug": "salaty-apk",
+    "slug": "salatyapk",
     "version": "1.0.15",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -47,7 +47,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "c3ba7af0-8507-4bd7-8e00-cc7d1f312d71"
+        "projectId": "c3ba7af0-8507-4bd7-8e00-cc7d1f313d71"
       }
     }
   }
