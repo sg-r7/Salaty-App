@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   CalculationMethod,
@@ -278,6 +279,8 @@ export function PrayerProvider({
     Record<string, boolean>
   >({});
 
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
   const [prayerTimes, setPrayerTimes] = useState<
     PrayerTimeItem[]
   >([]);
@@ -327,6 +330,7 @@ export function PrayerProvider({
     }
 
     if (!savedSettings) {
+      setSettingsLoaded(true);
       return;
     }
 
@@ -353,6 +357,8 @@ export function PrayerProvider({
     } catch {
       setError("تعذر قراءة إعدادات التطبيق المحفوظة.");
     }
+
+    setSettingsLoaded(true);
   }, []);
 
   const togglePrayerCompletion = useCallback(
@@ -435,8 +441,17 @@ export function PrayerProvider({
         }
 
         const now = Date.now();
+        const tomorrow = new Date();
+        tomorrow.setHours(12, 0, 0, 0);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowPrayerTimes = calculatePrayerTimes(
+          location,
+          calculationMethod,
+          asrMadhab,
+          tomorrow
+        );
 
-        const upcomingPrayerItems = prayerTimes
+        const upcomingPrayerItems = [...prayerTimes, ...tomorrowPrayerTimes]
           .filter(
             (prayer) =>
               prayer.id !== "sunrise" &&
@@ -445,7 +460,7 @@ export function PrayerProvider({
               prayer.date.getTime() > now
           )
           .map((prayer) => ({
-            id: prayer.id,
+            id: `${prayer.id}-${getLocalDateKey(prayer.date)}`,
             name: prayer.name,
             date: prayer.date,
           }));
@@ -501,10 +516,14 @@ export function PrayerProvider({
       notificationSettings.prayerNotifications,
       periodMode,
       prayerTimes,
+      location,
+      calculationMethod,
+      asrMadhab,
     ]);
 
   useEffect(() => {
     loadStoredSettings().catch(() => {
+      setSettingsLoaded(true);
       setError("تعذر تحميل إعدادات التطبيق.");
     });
   }, [loadStoredSettings]);
@@ -516,7 +535,7 @@ export function PrayerProvider({
   }, [refreshPrayerData]);
 
   useEffect(() => {
-    if (prayerTimes.length === 0) {
+    if (!settingsLoaded || prayerTimes.length === 0) {
       return;
     }
 
@@ -529,7 +548,23 @@ export function PrayerProvider({
       console.error(schedulingError, err);
       setError(schedulingError);
     });
-  }, [prayerTimes, rescheduleNotifications]);
+  }, [prayerTimes, rescheduleNotifications, settingsLoaded]);
+
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const resumed =
+        previousState.match(/inactive|background/) &&
+        nextState === "active";
+      previousState = nextState;
+
+      if (resumed) {
+        void refreshPrayerData();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [refreshPrayerData]);
 
   const setLocation = useCallback(
     async (nextLocation: SavedLocation): Promise<void> => {

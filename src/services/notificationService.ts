@@ -4,13 +4,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Android permanently caches channel settings by ID. This new ID forces the
 // OS to create a fresh prayer channel with the bundled Azan sound.
-export const PRAYER_CHANNEL_ID = "salaty-prayer-adhan-v8";
+export const PRAYER_CHANNEL_ID = "salaty-prayer-adhan-v9";
 export const ATHKAR_CHANNEL_ID = "salaty-athkar-notifications-v2";
 export const FRIDAY_CHANNEL_ID = "salaty-friday-notifications-v2";
 // Keep the bundled filename consistent across the channel and notification
 // content so Expo can resolve the configured sound on every platform.
 export const PRAYER_SOUND = "azan.mp3";
 const LEGACY_PRAYER_CHANNEL_IDS = new Set([
+  "salaty-prayer-adhan-v8",
   "salaty-prayer-adhan-v7",
   "salaty-prayer-adhan-v6",
   "salaty-prayer-adhan-v5",
@@ -65,6 +66,14 @@ export async function configurePrayerNotificationChannel(): Promise<void> {
       contentType: Notifications.AndroidAudioContentType.SONIFICATION,
     },
   });
+
+  await Promise.all(
+    ["salaty-prayer-adhan-v7", "salaty-prayer-adhan-v8"].map((channelId) =>
+      Notifications.deleteNotificationChannelAsync(channelId).catch(() => {
+        // The channel may not exist on a fresh installation.
+      })
+    )
+  );
 }
 
 export async function configureNotificationChannels(): Promise<void> {
@@ -166,16 +175,26 @@ export async function cancelPrayerNotifications(): Promise<void> {
 }
 
 export async function cancelAllScheduledNotifications(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await enqueueNotificationOperation(() =>
+    Notifications.cancelAllScheduledNotificationsAsync()
+  );
 }
 
 let schedulingQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueNotificationOperation<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  const task = schedulingQueue.then(operation);
+  schedulingQueue = task.catch(() => undefined);
+  return task;
+}
 
 export function replaceScheduledPrayerNotifications(
   prayers: PrayerScheduleItem[],
   enabled: boolean
 ): Promise<string[]> {
-  const task = schedulingQueue.then(async () => {
+  return enqueueNotificationOperation(async () => {
     await cancelPrayerNotifications();
 
     if (!enabled || prayers.length === 0) {
@@ -218,9 +237,6 @@ export function replaceScheduledPrayerNotifications(
 
     return scheduledIds;
   });
-
-  schedulingQueue = task.catch(() => {});
-  return task;
 }
 
 export async function scheduleDailyAthkarNotification(

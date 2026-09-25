@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,13 @@ import {
   saveCity,
 } from "../../src/services/locationService";
 import { NotificationSettings } from "../../src/services/notificationService";
+import {
+  NotificationDiagnostics,
+  getNotificationDiagnostics,
+  openAppSettings,
+  openBatteryOptimizationSettings,
+  openExactAlarmSettings,
+} from "../../src/services/notificationDiagnostics";
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -95,6 +102,26 @@ function getOffsetTitle(offset: number): string {
   return `تأخير ${absoluteOffset} ${
     absoluteOffset === 1 ? "يوم" : "أيام"
   }`;
+}
+
+function getDiagnosticLabel(
+  status: NotificationDiagnostics[keyof NotificationDiagnostics]
+): string {
+  if (status === "ready") {
+    return "جاهز";
+  }
+
+  if (status === "needs-attention") {
+    return "يحتاج مراجعة";
+  }
+
+  return "تحقق من إعدادات النظام";
+}
+
+function getDiagnosticColor(
+  status: NotificationDiagnostics[keyof NotificationDiagnostics]
+): string {
+  return status === "ready" ? "#72efdd" : "#f6c667";
 }
 
 function SettingRow({
@@ -230,11 +257,34 @@ export default function SettingsTab() {
   const [detectingLocation, setDetectingLocation] =
     useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
+  const [diagnostics, setDiagnostics] =
+    useState<NotificationDiagnostics | null>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
 
   const filteredCities = useMemo(
     () => searchCities(locationQuery),
     [locationQuery]
   );
+
+  const refreshDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    try {
+      setDiagnostics(await getNotificationDiagnostics());
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshDiagnostics();
+  }, []);
+
+  const openDiagnosticsSettings = async (
+    openSettings: () => Promise<boolean>
+  ) => {
+    await openSettings();
+    await refreshDiagnostics();
+  };
 
   const updateNotifications = async (
     changes: Partial<NotificationSettings>
@@ -626,6 +676,62 @@ export default function SettingsTab() {
                 />
               }
             />
+          </View>
+
+          <View style={styles.diagnosticsCard}>
+            <View style={styles.diagnosticsHeader}>
+              <View style={styles.diagnosticsIconContainer}>
+                <Ionicons name="shield-checkmark-outline" size={22} color="#72efdd" />
+              </View>
+              <View style={styles.diagnosticsTextContainer}>
+                <Text style={styles.diagnosticsTitle}>موثوقية إشعارات الأذان</Text>
+                <Text style={styles.diagnosticsSubtitle}>
+                  راجع الإعدادات التالية، خصوصاً على أجهزة شاومي.
+                </Text>
+              </View>
+              <Pressable onPress={() => void refreshDiagnostics()} style={styles.refreshButton}>
+                {diagnosticsLoading ? (
+                  <ActivityIndicator size="small" color="#72efdd" />
+                ) : (
+                  <Ionicons name="refresh-outline" size={20} color="#72efdd" />
+                )}
+              </Pressable>
+            </View>
+            {diagnostics ? (
+              <View style={styles.diagnosticsStatusList}>
+                {([
+                  ["الإشعارات", diagnostics.notifications],
+                  ["قناة الأذان", diagnostics.prayerChannel],
+                  ["المنبه الدقيق", diagnostics.exactAlarm],
+                  ["تحسين البطارية", diagnostics.batteryOptimization],
+                ] as const).map(([label, status]) => (
+                  <View key={label} style={styles.diagnosticsStatusRow}>
+                    <Text style={styles.diagnosticsStatusLabel}>{label}</Text>
+                    <Text style={[styles.diagnosticsStatusValue, { color: getDiagnosticColor(status) }]}>
+                      {getDiagnosticLabel(status)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <Text style={styles.xiaomiInstructions}>
+              على أجهزة شاومي: فعّل التشغيل التلقائي، اختر «بلا قيود» للبطارية،
+              اقفل التطبيق في التطبيقات الأخيرة، واسمح بإشعارات شاشة القفل والعائمة.
+            </Text>
+            <View style={styles.diagnosticsActions}>
+              <Pressable onPress={() => void openDiagnosticsSettings(openExactAlarmSettings)} style={styles.diagnosticsAction}>
+                <Ionicons name="alarm-outline" size={18} color="#102337" />
+                <Text style={styles.diagnosticsActionText}>إعداد المنبه الدقيق</Text>
+              </Pressable>
+              <Pressable onPress={() => void openDiagnosticsSettings(openBatteryOptimizationSettings)} style={styles.diagnosticsAction}>
+                <Ionicons name="battery-half-outline" size={18} color="#102337" />
+                <Text style={styles.diagnosticsActionText}>إعداد البطارية</Text>
+              </Pressable>
+              <Pressable onPress={() => void openDiagnosticsSettings(openAppSettings)} style={styles.diagnosticsAction}>
+                <Ionicons name="settings-outline" size={18} color="#102337" />
+                <Text style={styles.diagnosticsActionText}>إعدادات التطبيق</Text>
+              </Pressable>
+            </View>
           </View>
 
           <Text style={styles.sectionTitle}>الوضع الخاص</Text>
@@ -1054,6 +1160,99 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 22,
     overflow: "hidden",
+  },
+  diagnosticsCard: {
+    backgroundColor: "#142c3c",
+    borderColor: "#2b6e7d",
+    borderRadius: 17,
+    borderWidth: 1,
+    marginBottom: 22,
+    padding: 14,
+  },
+  diagnosticsHeader: {
+    alignItems: "center",
+    flexDirection: "row-reverse",
+  },
+  diagnosticsIconContainer: {
+    alignItems: "center",
+    backgroundColor: "rgba(114, 239, 221, 0.14)",
+    borderRadius: 12,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  diagnosticsTextContainer: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  diagnosticsTitle: {
+    color: "#edf8f8",
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  diagnosticsSubtitle: {
+    color: "#9fc8cc",
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 4,
+    textAlign: "right",
+  },
+  refreshButton: {
+    alignItems: "center",
+    borderColor: "#397f8b",
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  diagnosticsStatusList: {
+    borderTopColor: "#2b5262",
+    borderTopWidth: 1,
+    marginTop: 13,
+    paddingTop: 8,
+  },
+  diagnosticsStatusRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  diagnosticsStatusLabel: {
+    color: "#d1e4e6",
+    fontSize: 11,
+    textAlign: "right",
+  },
+  diagnosticsStatusValue: {
+    fontSize: 11,
+    fontWeight: "800",
+    textAlign: "left",
+  },
+  xiaomiInstructions: {
+    color: "#b5d1d3",
+    fontSize: 11,
+    lineHeight: 18,
+    marginTop: 10,
+    textAlign: "right",
+  },
+  diagnosticsActions: {
+    gap: 8,
+    marginTop: 12,
+  },
+  diagnosticsAction: {
+    alignItems: "center",
+    backgroundColor: "#72efdd",
+    borderRadius: 11,
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 10,
+  },
+  diagnosticsActionText: {
+    color: "#102337",
+    fontSize: 11,
+    fontWeight: "800",
+    marginRight: 7,
   },
 
   settingPressable: {
