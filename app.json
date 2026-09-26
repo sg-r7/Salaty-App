@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "صلاتي | SALATY",
+    "owner": "sgr7",
     "slug": "salatyapk",
     "version": "1.0.15",
     "orientation": "portrait",
@@ -44,6 +45,11 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c3ba7af0-8507-4bd7-8e00-cc7d1f313d71"
+      }
+    }
   }
 }
