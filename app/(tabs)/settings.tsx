@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Alert,
   KeyboardAvoidingView,
   Linking,
@@ -277,6 +278,16 @@ export default function SettingsTab() {
 
   useEffect(() => {
     void refreshDiagnostics();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void refreshDiagnostics();
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const openDiagnosticsSettings = async (
