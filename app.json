@@ -33,7 +33,6 @@
       ]
     },
     "plugins": [
-      "./plugins/withExpoGradleCompatibility",
       [
         "expo-notifications",
         {
